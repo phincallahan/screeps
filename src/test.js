@@ -1,3 +1,5 @@
-export function testLog() {
+function testLog() {
   console.log("hi i'm working!!!");
 };
+
+module.export = testLog;
