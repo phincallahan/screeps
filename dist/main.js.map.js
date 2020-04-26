@@ -1,1 +1,0 @@
-module.exports = {"version":3,"file":"main.js","sources":["../src/main.ts"],"names":[],"mappings":";;;;MAAa,IAAI,GAAG;IAChB,OAAO,CAAC,GAAG,CAAC,cAAc,CAAC,CAAC;AAChC;;;;"};
