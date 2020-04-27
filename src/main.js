@@ -60,7 +60,7 @@ var roleUpgrader = {
   run: function(creep) {
 
     if(creep.memory.controlling && creep.store[RESOURCE_ENERGY] == 0) {
-      creep.memory.building = false;
+      creep.memory.controlling = false;
       creep.say('harvest');
     }
     if(!creep.memory.controlling && creep.store.getFreeCapacity() == 0) {
