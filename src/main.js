@@ -1,14 +1,26 @@
+var roleSettler = {
+    run: function(creep) {
+        var reserve = creep.reserveController(creep.room.controller);
+        if (creep.reserveController(creep.room.controller) == -9) {
+            creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffffff'}});
+        }
+    }
+};
+
 var roleHarvester = {
 
   run: function(creep) {
-    if(creep.store.getFreeCapacity() > 0) {
-      var sources = creep.room.find(FIND_SOURCES);
-      if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(sources[0], {visualizePathStyle: {stroke: '#ffaa00'}});
-        creep.say('harvest');
-      }
+
+    if(creep.memory.transferring && creep.store[RESOURCE_ENERGY] == 0) {
+      creep.memory.transferring = false;
+      creep.say('harvest');
     }
-    else {
+    if(!creep.memory.transferring && creep.store.getFreeCapacity() == 0) {
+      creep.memory.transferring = true;
+      creep.say('transfer');
+    }
+
+    if(creep.memory.transferring) {
       creep.say('transfer');
       var targets = creep.room.find(FIND_STRUCTURES, {
         filter: (structure) => {
@@ -18,8 +30,18 @@ var roleHarvester = {
       });
       if(targets.length > 0) {
         if(creep.transfer(targets[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-          creep.moveTo(targets[0], {visualizePathStyle: {stroke: '#ffffff'}});
+          creep.moveTo(targets[0], {maxRooms: 1, visualizePathStyle: {stroke: '#ffffff'}});
         }
+      }
+    }
+    else {
+
+      // find energy sources
+      var sources = creep.room.find(FIND_SOURCES);
+
+      // move closer if energy source is out of range
+      if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+        creep.moveTo(sources[0], {maxRooms: 1, visualizePathStyle: {stroke: '#ffaa00'}});
       }
     }
   }
@@ -42,14 +64,58 @@ var roleBuilder = {
       var targets = creep.room.find(FIND_CONSTRUCTION_SITES);
       if(targets.length) {
         if(creep.build(targets[0]) == ERR_NOT_IN_RANGE) {
-          creep.moveTo(targets[0], {visualizePathStyle: {stroke: '#ffffff'}});
+          creep.moveTo(targets[0], {maxRooms: 1, visualizePathStyle: {stroke: '#ffffff'}});
         }
+      } else {
+         creep.suicide();
       }
     }
     else {
       var sources = creep.room.find(FIND_SOURCES);
       if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(sources[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+
+        creep.moveTo(sources[0], {maxRooms: 1, visualizePathStyle: {stroke: '#ffaa00'}});
+      }
+    }
+  }
+};
+
+var roleRepair = {
+
+  run: function(creep) {
+
+    if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
+      creep.memory.repairing = false;
+      creep.say('harvest');
+    }
+    if(!creep.memory.repairing && creep.store.getFreeCapacity() == 0) {
+      creep.memory.repairing = true;
+      creep.say('repair');
+    }
+
+    if(creep.memory.repairing) {
+        const targets = creep.room.find(FIND_STRUCTURES, {
+            filter: function(object) {
+                return ((object.structureType == STRUCTURE_ROAD || object.structureType == STRUCTURE_CONTAINER) && object.hits < object.hitsMax);
+            }
+        });
+
+        targets.sort((a,b) => a.hits - b.hits);
+
+        if(targets.length > 0) {
+            if(creep.repair(targets[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(targets[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+            }
+        } else {
+         creep.suicide();
+        }
+    }
+
+    else {
+      var sources = creep.room.find(FIND_SOURCES);
+      if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+
+        creep.moveTo(sources[0], {maxRooms: 1, visualizePathStyle: {stroke: '#ffaa00'}});
       }
     }
   }
@@ -72,7 +138,7 @@ var roleUpgrader = {
     if(creep.memory.controlling) {
 
       if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffaa00'}});
+        creep.moveTo(creep.room.controller, {maxRooms: 1, visualizePathStyle: {stroke: '#ffaa00'}});
       }
     }
 
@@ -81,32 +147,81 @@ var roleUpgrader = {
 
       // find energy sources
       var sources = creep.room.find(FIND_SOURCES);
+      const containersWithEnergy = creep.room.find(FIND_STRUCTURES, {
+        filter: (i) => i.structureType == STRUCTURE_CONTAINER &&
+                   i.store[RESOURCE_ENERGY] > 0
+        });
 
       // move closer if energy source is out of range
-      if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(sources[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+      if (containersWithEnergy.length) {
+          if (creep.withdraw(containersWithEnergy[0]) == ERR_NOT_IN_RANGE) {
+              creep.moveTo(containersWithEnergy[0], {maxRooms: 1, visualizePathStyle: {stroke: '#ffaa00'}});
+          }
       }
 
+      else if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+        creep.moveTo(sources[0], {maxRooms: 1, visualizePathStyle: {stroke: '#ffaa00'}});
+      }
     }
   }
 };
 
 function creepCheck() {
   var roleList = [];
+  var upgraders = [];
+  var builders = [];
+  var harvesters = [];
+  var repairmen = [];
   for (name in Game.creeps) {
+      if(Game.creeps[name].memory.role == 'upgrader') {
+          upgraders.push(Game.creeps[name].ticksToLive);
+      }
+      else if(Game.creeps[name].memory.role == 'builder') {
+          builders.push(Game.creeps[name].ticksToLive);
+      }
+      else if(Game.creeps[name].memory.role == 'harvester') {
+          harvesters.push(Game.creeps[name].ticksToLive);
+      }
+      else if(Game.creeps[name].memory.role == 'repair') {
+          repairmen.push(Game.creeps[name].ticksToLive);
+      }
     roleList.push(Game.creeps[name].memory.role);
   }
 
-  for (var name in Game.spawns) {
-    if (Game.spawns[name].store[RESOURCE_ENERGY] >= 300) {
+  console.log('----------------------');
+  console.log('NumHarvesters: ' + harvesters.length + ' – ' + harvesters);
+  console.log('NumBuilders: ' + builders.length + ' – ' + builders);
+  console.log('NumUpgraders: ' + upgraders.length + ' – ' + upgraders);
+  console.log('NumRepairmen: ' + repairmen.length + ' – ' + repairmen);
 
-      Game.spawns[name].spawnCreep([WORK, WORK, CARRY, MOVE], 'upgrader'.concat(Game.time.toString()), { memory: { role: 'upgrader' } } );
+
+  // code for generating new creeps
+  for (var name in Game.spawns) {
+
+    if (Game.spawns[name].store[RESOURCE_ENERGY] >= 300) {
+        var targets = Game.spawns[name].room.find(FIND_CONSTRUCTION_SITES);
+
+        if (harvesters.length < 2 || (harvesters.length == 2 && Math.min(...harvesters) < 100)) {
+            Game.spawns[name].spawnCreep([WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], 'harvester'.concat(Game.time.toString()), { memory: { role: 'harvester' } } );
+        }
+
+        else if (upgraders.length < 5 || (upgraders.length == 5 && Math.min(...upgraders) < 100)) {
+            Game.spawns[name].spawnCreep([WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], 'upgrader'.concat(Game.time.toString()), { memory: { role: 'upgrader' } } );
+        }
+
+        else if (repairmen.length < 1 || (repairmen.length == 1 && Math.min(...repairmen) < 100)) {
+            Game.spawns[name].spawnCreep([WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], 'repairman'.concat(Game.time.toString()), { memory: { role: 'repair' } } );
+        }
+
+        else if (targets.length && (builders.length < 3 || (builders.length == 3 && Math.min(...builders) < 100))) {
+            Game.spawns[name].spawnCreep([WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], 'builder'.concat(Game.time.toString()), { memory: { role: 'builder' } } );
+        }
     }
   }
 
-}
+};
 
-export const loop = function() {
+const loop = function() {
 
   creepCheck();
 
@@ -120,6 +235,12 @@ export const loop = function() {
     }
     if(creep.memory.role == 'builder') {
       roleBuilder.run(creep);
+    }
+    if(creep.memory.role == 'settler') {
+      roleSettler.run(creep);
+    }
+    if(creep.memory.role == 'repair') {
+      roleRepair.run(creep);
     }
   }
 };
