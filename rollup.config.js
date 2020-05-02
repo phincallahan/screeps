@@ -15,7 +15,7 @@ if (!dest) {
 }
 
 export default {
-  input: "src/main.ts",
+  input: "src/main.js",
   output: {
     file: "dist/main.js",
     format: "cjs",
@@ -26,7 +26,6 @@ export default {
     clear({ targets: ["dist"] }),
     resolve(),
     commonjs(),
-    typescript({tsconfig: "./tsconfig.json"}),
     screeps({config: cfg, dryRun: cfg == null})
   ]
 }

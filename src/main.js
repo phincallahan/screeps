@@ -80,7 +80,7 @@ var roleBuilder = {
   }
 };
 
-var roleRepair = {
+var roleRepairman = {
 
   run: function(creep) {
 
@@ -166,6 +166,42 @@ var roleUpgrader = {
   }
 };
 
+// function for getting the total energy availables
+function getTotalEnergy(spawn) {
+  var totalEnergy = 0;
+
+  var spawnEnergy = spawn.store[RESOURCE_ENERGY];
+  totalEnergy += spawnEnergy;
+
+  const extensions = spawn.room.find(FIND_STRUCTURES, {
+    filter: (structure) => {
+      return (structure.structureType == STRUCTURE_EXTENSION)
+    }
+  });
+  for (var extension in extensions) {
+    var extensionEnergy = extension.store[RESOURCE_ENERGY];
+    totalEnergy += extensionEnergy;
+  }
+};
+
+// function for creating a new creep
+function newCreep(creepRole, availableEnergy) {
+  var numWork = 5;
+  var numCarry = 5;
+  var numMove = 5;
+  var totalEnergy = 100*numWork + 50*(numCarry + numMove);
+  console.log(totalEnergy);
+
+  // var bodyPartList = ['WORK' * numWork, 'CARRY' * numCarry, 'MOVE' & numMove];
+  // while (totalEnergy > availableEnergy) {
+  //   if (currPart == )
+  // }
+  //
+  // Game.spawns[name].spawnCreep([WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE],
+  //                             'creepRole'.concat(Game.time.toString()),
+  //                             {memory: {role: creepRole}});
+};
+
 function creepCheck() {
   var roleList = [];
   var upgraders = [];
@@ -182,7 +218,7 @@ function creepCheck() {
       else if(Game.creeps[name].memory.role == 'harvester') {
           harvesters.push(Game.creeps[name].ticksToLive);
       }
-      else if(Game.creeps[name].memory.role == 'repair') {
+      else if(Game.creeps[name].memory.role == 'repairman') {
           repairmen.push(Game.creeps[name].ticksToLive);
       }
     roleList.push(Game.creeps[name].memory.role);
@@ -194,9 +230,9 @@ function creepCheck() {
   console.log('NumUpgraders: ' + upgraders.length + ' – ' + upgraders);
   console.log('NumRepairmen: ' + repairmen.length + ' – ' + repairmen);
 
-
   // code for generating new creeps
   for (var name in Game.spawns) {
+    console.log(getTotalEnergy(Game.spawns[name]));
 
     if (Game.spawns[name].store[RESOURCE_ENERGY] >= 300) {
         var targets = Game.spawns[name].room.find(FIND_CONSTRUCTION_SITES);
@@ -210,7 +246,7 @@ function creepCheck() {
         }
 
         else if (repairmen.length < 1 || (repairmen.length == 1 && Math.min(...repairmen) < 100)) {
-            Game.spawns[name].spawnCreep([WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], 'repairman'.concat(Game.time.toString()), { memory: { role: 'repair' } } );
+            Game.spawns[name].spawnCreep([WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], 'repairman'.concat(Game.time.toString()), { memory: { role: 'repairman' } } );
         }
 
         else if (targets.length && (builders.length < 3 || (builders.length == 3 && Math.min(...builders) < 100))) {
@@ -224,6 +260,7 @@ function creepCheck() {
 const loop = function() {
 
   creepCheck();
+  newCreep();
 
   for(var name in Game.creeps) {
     var creep = Game.creeps[name];
